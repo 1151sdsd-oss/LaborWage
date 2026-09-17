@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>投保薪資回溯試算</title>
+<style>
+  :root{
+    --bg:#F4F5F7;
+    --surface:#FFFFFF;
+    --surface-2:#FAFBFC;
+    --border:#DCE1E7;
+    --border-strong:#C2C9D2;
+    --text:#1F2430;
+    --text-muted:#5B6472;
+    --text-faint:#88909A;
+    --accent:#1B4B66;
+    --accent-strong:#123549;
+    --accent-soft:#E4EEF2;
+    --positive:#2F7D5C;
+    --positive-soft:#E5F2ED;
+    --warn:#B54708;
+    --warn-soft:#FBEEE4;
+    --radius:6px;
+    font-variant-numeric: tabular-nums;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#14171C; --surface:#1C2129; --surface-2:#20262F;
+      --border:#2B323C; --border-strong:#3A424D;
+      --text:#E7EAEE; --text-muted:#9AA3AF; --text-faint:#6B7480;
+      --accent:#4C93B0; --accent-strong:#2E6E88; --accent-soft:#20323B;
+      --positive:#4FAE84; --positive-soft:#173229;
+      --warn:#E08A4C; --warn-soft:#3A2415;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#14171C; --surface:#1C2129; --surface-2:#20262F;
+    --border:#2B323C; --border-strong:#3A424D;
+    --text:#E7EAEE; --text-muted:#9AA3AF; --text-faint:#6B7480;
+    --accent:#4C93B0; --accent-strong:#2E6E88; --accent-soft:#20323B;
+    --positive:#4FAE84; --positive-soft:#173229;
+    --warn:#E08A4C; --warn-soft:#3A2415;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:"Microsoft JhengHei","Noto Sans TC","PingFang TC",-apple-system,BlinkMacSystemFont,sans-serif;
+    line-height:1.5;
+    padding:32px 20px 80px;
+  }
+  .wrap{max-width:980px;margin:0 auto;}
+
+  header.page{margin-bottom:28px;}
+  header.page h1{
+    font-size:26px;
+    font-weight:700;
+    letter-spacing:-0.01em;
+    margin:0 0 6px;
+    color:var(--accent-strong);
+  }
+  header.page p{margin:0;color:var(--text-muted);font-size:13.5px;}
+  header.page p a{color:var(--accent);}
+
+  .grid{display:grid;grid-template-columns:1.55fr 1fr;gap:20px;align-items:start;}
+  @media (max-width:820px){.grid{grid-template-columns:1fr;}}
+
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px 22px;}
+  .card h2{font-size:15px;font-weight:700;margin:0 0 4px;color:var(--text);}
+  .card .card-sub{font-size:12.5px;color:var(--text-muted);margin:0 0 16px;}
+
+  table.rows{width:100%;border-collapse:collapse;font-size:13.5px;}
+  table.rows th{text-align:left;font-weight:600;color:var(--text-muted);font-size:12px;padding:0 8px 8px 8px;border-bottom:1px solid var(--border);}
+  table.rows td{padding:8px 8px;border-bottom:1px solid var(--border);vertical-align:middle;}
+  table.rows tr:last-child td{border-bottom:none;}
+
+  select, input[type=date], input[type=text], input[type=number], textarea{
+    width:100%;padding:7px 8px;border:1px solid var(--border-strong);border-radius:4px;
+    font-size:13.5px;font-family:inherit;background:var(--surface);color:var(--text);
+  }
+  textarea{font-family:ui-monospace,"SFMono-Regular",Consolas,monospace;resize:vertical;}
+  select:focus, input:focus, textarea:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent);}
+  select.invalid, input.invalid, textarea.invalid{border-color:var(--warn);}
+
+  .chk-cell{text-align:center;width:64px;}
+  .chk-cell input{width:16px;height:16px;cursor:pointer;}
+  .rm-cell{width:32px;text-align:center;}
+  .rm-btn{border:none;background:none;color:var(--text-faint);font-size:16px;line-height:1;cursor:pointer;padding:4px;border-radius:4px;}
+  .rm-btn:hover{color:var(--warn);background:var(--warn-soft);}
+
+  .add-row{margin-top:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+  .btn{border:1px solid var(--border-strong);background:var(--surface-2);color:var(--text);padding:8px 14px;border-radius:4px;font-size:13.5px;font-family:inherit;cursor:pointer;}
+  .btn:hover{background:var(--accent-soft);border-color:var(--accent);}
+  .btn.primary{background:var(--accent);color:#fff;border-color:var(--accent);}
+  .btn.primary:hover{background:var(--accent-strong);}
+
+  .note{font-size:12px;color:var(--text-faint);margin-top:12px;line-height:1.6;}
+
+  .result-card{position:sticky;top:20px;background:var(--accent-strong);color:#fff;border:none;}
+  .result-card h2{color:#fff;}
+  .result-card .card-sub{color:#B9CBD4;}
+  .result-block{margin:14px 0;padding-bottom:14px;border-bottom:1px solid rgba(255,255,255,0.14);}
+  .result-block:last-of-type{border-bottom:none;padding-bottom:0;}
+  .result-label{font-size:12px;color:#B9CBD4;margin-bottom:3px;}
+  .result-value{font-size:24px;font-weight:700;letter-spacing:-0.01em;}
+  .result-value small{font-size:13px;font-weight:400;color:#B9CBD4;}
+  .result-value.empty{color:#7C93A0;font-size:15px;font-weight:400;}
+  .period-line{font-size:12.5px;color:#CFE0E7;margin-top:2px;}
+  .copy-btn{margin-top:16px;width:100%;background:rgba(255,255,255,0.1);color:#fff;border:1px solid rgba(255,255,255,0.3);}
+  .copy-btn:hover{background:rgba(255,255,255,0.18);}
+  .copy-btn.copied{background:var(--positive);border-color:var(--positive);}
+
+  details.panel{margin-top:20px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);}
+  details.panel summary{padding:14px 22px;cursor:pointer;font-size:14px;font-weight:600;color:var(--accent);list-style:none;}
+  details.panel summary::-webkit-details-marker{display:none;}
+  details.panel summary::before{content:"▸ ";display:inline-block;transition:transform .15s;}
+  details.panel[open] summary::before{transform:rotate(90deg);}
+
+  .ref-table-wrap{padding:0 22px 20px;overflow-x:auto;}
+  table.ref-table{width:100%;border-collapse:collapse;font-size:12.5px;min-width:520px;}
+  table.ref-table th{text-align:left;padding:6px 8px;color:var(--text-muted);border-bottom:1px solid var(--border-strong);position:sticky;top:0;background:var(--surface);}
+  table.ref-table td{padding:5px 8px;border-bottom:1px solid var(--border);}
+  table.ref-table tr.group-start td{border-top:2px solid var(--border-strong);}
+  table.ref-table td.group-label{color:var(--text-faint);font-size:11px;}
+
+  .mgmt-body{padding:0 22px 22px;}
+  .field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;}
+  @media (max-width:600px){.field-row{grid-template-columns:1fr;}}
+  .field label{display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;}
+  .mgmt-cols{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:6px;}
+  @media (max-width:700px){.mgmt-cols{grid-template-columns:1fr;}}
+  .mgmt-cols textarea{height:220px;}
+  .mgmt-actions{margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;}
+  .cfg-error{color:var(--warn);font-size:12.5px;margin-top:8px;min-height:1.2em;}
+  .cfg-hint{font-size:11.5px;color:var(--text-faint);margin-top:4px;line-height:1.6;}
+
+  footer.src{margin-top:18px;font-size:11.5px;color:var(--text-faint);line-height:1.7;}
+  footer.src a{color:var(--text-faint);}
+</style>
+</head>
+<body>
+<script>const ORIGINAL_HTML = document.documentElement.outerHTML;</script>
+<div class="wrap">
+
+  <header class="page">
+    <h1>投保薪資回溯試算</h1>
+    <p id="headerSub"></p>
+  </header>
+
+  <div class="grid">
+    <div class="card">
+      <h2>異動紀錄</h2>
+      <p class="card-sub">請輸入近一年內每次投保等級異動的生效日期與對應級距，系統會自動依日期排序並計算each期間佔比</p>
+
+      <table class="rows">
+        <thead>
+          <tr>
+            <th style="width:46%">投保等級 / 月投保金額</th>
+            <th style="width:28%">生效日期</th>
+            <th class="chk-cell">非現職</th>
+            <th class="rm-cell"></th>
+          </tr>
+        </thead>
+        <tbody id="rowsBody"></tbody>
+      </table>
+
+      <div class="add-row">
+        <button class="btn" id="addRowBtn" type="button">＋ 新增異動紀錄</button>
+        <button class="btn" id="addTodayBtn" type="button">＋ 加入今天為基準日</button>
+      </div>
+
+      <p class="note">
+        「非現職」勾選代表該期間非在職狀態（例如留職停薪），該段期間不計入平均天數與金額。<br>
+        計算基準：以最新一筆生效日期視為目前狀態，往回推算365天內的實際天數加權平均。<br>
+        換算說明：依法規薪資介於兩級距間需從高申報，故投保金額通常高於實際薪資；試算結果採該級距對應「實際薪資月額」的<b>下限</b>作為保守估計值，而非直接使用投保金額本身。
+      </p>
+    </div>
+
+    <div class="card result-card">
+      <h2>試算結果</h2>
+      <p class="card-sub">即時更新</p>
+
+      <div class="result-block">
+        <div class="result-label">加權平均推估實際薪資（保守估計）</div>
+        <div class="result-value empty" id="rAvgSalary">請至少輸入2筆異動紀錄</div>
+      </div>
+      <div class="result-block">
+        <div class="result-label" id="rAnnualLabel">推算年收入</div>
+        <div class="result-value empty" id="rAnnual">—</div>
+      </div>
+      <div class="result-block">
+        <div class="result-label">推算平均月收</div>
+        <div class="result-value empty" id="rMonthly">—</div>
+        <div class="period-line" id="rPeriod"></div>
+      </div>
+
+      <button class="btn copy-btn" id="copyBtn" type="button">複製試算摘要</button>
+    </div>
+  </div>
+
+  <details class="panel">
+    <summary id="refSummary">查看完整分級表</summary>
+    <div class="ref-table-wrap">
+      <table class="ref-table" id="refTable">
+        <thead><tr><th>組別 / 級距</th><th>等級</th><th>月投保金額</th><th>實際薪資月額範圍</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </details>
+
+  <details class="panel">
+    <summary>🔧 管理／更新分級表（年度異動用，不需要改程式碼）</summary>
+    <div class="mgmt-body">
+      <p class="cfg-hint">
+        每年基本工資調整後，健保署會公告新的「投保金額分級表」。到
+        <span id="mgmtSourceLinkWrap"><a id="mgmtSourceLink" href="#" target="_blank" rel="noopener">官方頁面</a></span>
+        複製「月投保金額」欄的數字（由小到大、一行一個），貼到下面文字框，其餘欄位會自動計算，不需要逐格輸入、也不需要改程式碼。
+      </p>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="cfgEffDate">生效日期（例如 116.01.01）</label>
+          <input type="text" id="cfgEffDate">
+        </div>
+        <div class="field">
+          <label for="cfgPublishDate">公告發布日（例如 115-12-10）</label>
+          <input type="text" id="cfgPublishDate">
+        </div>
+        <div class="field">
+          <label for="cfgSourceUrl">資料來源網址</label>
+          <input type="text" id="cfgSourceUrl">
+        </div>
+        <div class="field">
+          <label for="cfgAnnualMonths">年度給付月數（原本×14的假設值）</label>
+          <input type="number" id="cfgAnnualMonths" min="1" step="1">
+        </div>
+      </div>
+
+      <div class="mgmt-cols">
+        <div class="field">
+          <label for="cfgAmounts">月投保金額（由低到高，一行一個數字，必填）</label>
+          <textarea id="cfgAmounts" spellcheck="false"></textarea>
+        </div>
+        <div class="field">
+          <label for="cfgGroups">組別標示（選填，格式：標籤|起始等級|結束等級，一行一組；留空則不分組顯示）</label>
+          <textarea id="cfgGroups" spellcheck="false"></textarea>
+        </div>
+      </div>
+
+      <div class="cfg-error" id="cfgError"></div>
+
+      <div class="mgmt-actions">
+        <button class="btn" id="cfgApplyBtn" type="button">套用到目前頁面（先預覽）</button>
+        <button class="btn primary" id="cfgDownloadBtn" type="button">套用並下載更新版工具檔案</button>
+      </div>
+      <p class="cfg-hint">「下載更新版工具檔案」會產生一個包含新分級表的全新單一HTML檔案，直接取代原本的檔案發給同事使用即可；目前頁面本身不會被覆寫。</p>
+    </div>
+  </details>
+
+  <footer class="src" id="pageFooter"></footer>
+
+</div>
+
+<script>
+// ===CONFIG_START===
+const CONFIG = {
+  "effectiveDate": "115.01.01",
+  "sourceUrl": "https://www.nhi.gov.tw/ch/cp-19421-f9533-2569-1.html",
+  "sourcePublishDate": "114-12-12",
+  "annualMonths": 14,
+  "amounts": [29500,30300,31800,33300,34800,36300,38200,40100,42000,43900,45800,48200,50600,53000,55400,57800,60800,63800,66800,69800,72800,76500,80200,83900,87600,92100,96600,101100,105600,110100,115500,120900,126300,131700,137100,142500,147900,150000,156400,162800,169200,175600,182000,189500,197000,204500,212000,219500,228200,236900,245600,254300,263000,273000,283000,293000,303000,313000],
+  "groups": [
+    ["第一組（基本工資）",1,1],
+    ["第二組 級距1500元",2,6],
+    ["第三組 級距1900元",7,11],
+    ["第四組 級距2400元",12,16],
+    ["第五組 級距3000元",17,21],
+    ["第六組 級距3700元",22,25],
+    ["第七組 級距4500元",26,30],
+    ["第八組 級距5400元",31,38],
+    ["第九組 級距6400元",39,43],
+    ["第十組 級距7500元",44,48],
+    ["第十一組 級距8700元",49,53],
+    ["第十二組 級距10000元",54,58]
+  ]
+};
+// ===CONFIG_END===
+
+let GRADES = [];       // 依CONFIG推導出的完整分級表 {level, amount, lower, rangeText}
+let AMOUNT_TO_LOWER = new Map();
+
+function deriveGrades(amounts){
+  const list = [];
+  for(let i=0;i<amounts.length;i++){
+    const amount = amounts[i];
+    const level = i+1;
+    const lower = (i===0) ? amount : amounts[i-1]+1;
+    let rangeText;
+    if(i===0) rangeText = amount.toLocaleString()+'以下';
+    else if(i===amounts.length-1) rangeText = lower.toLocaleString()+'以上';
+    else rangeText = lower.toLocaleString()+'-'+amount.toLocaleString();
+    list.push({level, amount, lower, rangeText});
+  }
+  return list;
+}
+
+function groupLabelForLevel(level, groups){
+  if(!groups) return '';
+  for(const [label, from, to] of groups){
+    if(level>=from && level<=to) return (level===from) ? label : '';
+  }
+  return '';
+}
+
+function rebuildFromConfig(cfg){
+  GRADES = deriveGrades(cfg.amounts);
+  AMOUNT_TO_LOWER = new Map(GRADES.map(g=>[g.amount, g.lower]));
+
+  document.getElementById('headerSub').innerHTML =
+    `依 <a href="${cfg.sourceUrl}" target="_blank" rel="noopener">${cfg.effectiveDate}生效投保金額分級表</a>，計算近一年內因投保等級異動所得之加權平均月投保薪資`;
+
+  document.getElementById('pageFooter').innerHTML =
+    `資料來源：衛生福利部中央健康保險署「投保金額分級表(${cfg.effectiveDate}生效)」，發布日${cfg.sourcePublishDate}。`+
+    `<a href="${cfg.sourceUrl}" target="_blank" rel="noopener">${cfg.sourceUrl}</a><br>`+
+    `本表若逾一年未更新，請重新至健保署網站核對最新分級表。`;
+
+  document.getElementById('rAnnualLabel').textContent = `推算年收入（×${cfg.annualMonths}個月）`;
+  document.getElementById('refSummary').textContent = `查看完整${cfg.amounts.length}級投保金額分級表`;
+  document.getElementById('mgmtSourceLink').href = cfg.sourceUrl;
+
+  renderRefTable(cfg.groups);
+  refreshAllGradeSelects();
+  calc();
+}
+
+function renderRefTable(groups){
+  const body = document.querySelector('#refTable tbody');
+  body.innerHTML = '';
+  for(const g of GRADES){
+    const label = groupLabelForLevel(g.level, groups);
+    const tr = document.createElement('tr');
+    if(label) tr.classList.add('group-start');
+    tr.innerHTML = `<td class="group-label">${label}</td><td>${g.level}</td><td>${g.amount.toLocaleString()}</td><td>${g.rangeText}</td>`;
+    body.appendChild(tr);
+  }
+}
+
+function buildGradeOptions(selectedAmount){
+  let html = `<option value="" disabled ${selectedAmount==null?'selected':''}>請選擇級距</option>`;
+  for(const g of GRADES){
+    const sel = (selectedAmount===g.amount) ? 'selected' : '';
+    html += `<option value="${g.amount}" ${sel}>第${g.level}級・${g.amount.toLocaleString()}元（${g.rangeText}）</option>`;
+  }
+  return html;
+}
+
+function refreshAllGradeSelects(){
+  document.querySelectorAll('.gradeSelect').forEach(sel=>{
+    const current = parseInt(sel.value,10) || null;
+    sel.innerHTML = buildGradeOptions(current);
+  });
+}
+
+// ---------- 異動紀錄列 ----------
+const rowsBody = document.getElementById('rowsBody');
+let rowCounter = 0;
+
+function todayISO(){
+  const d = new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+
+function addRow(opts={}){
+  rowCounter++;
+  const tr = document.createElement('tr');
+  tr.dataset.id = rowCounter;
+  tr.innerHTML = `
+    <td><select class="gradeSelect">${buildGradeOptions(opts.amount)}</select></td>
+    <td><input type="date" class="dateInput" value="${opts.date||''}" max="${todayISO()}"></td>
+    <td class="chk-cell"><input type="checkbox" class="inactiveChk" ${opts.inactive?'checked':''}></td>
+    <td class="rm-cell"><button class="rm-btn" type="button" title="刪除">✕</button></td>
+  `;
+  rowsBody.appendChild(tr);
+  tr.querySelector('.gradeSelect').addEventListener('change', calc);
+  tr.querySelector('.dateInput').addEventListener('change', calc);
+  tr.querySelector('.inactiveChk').addEventListener('change', calc);
+  tr.querySelector('.rm-btn').addEventListener('click', ()=>{ tr.remove(); calc(); });
+}
+
+document.getElementById('addRowBtn').addEventListener('click', ()=>addRow());
+document.getElementById('addTodayBtn').addEventListener('click', ()=>addRow({date:todayISO()}));
+
+function fmtMoney(n){ return Math.round(n).toLocaleString('zh-Hant-TW'); }
+function fmtDate(d){ return d.getFullYear()+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+String(d.getDate()).padStart(2,'0'); }
+
+let lastResult = null;
+
+function calc(){
+  const trs = [...rowsBody.querySelectorAll('tr')];
+  const entries = [];
+  let hasInvalid = false;
+
+  for(const tr of trs){
+    const gradeSel = tr.querySelector('.gradeSelect');
+    const dateInp = tr.querySelector('.dateInput');
+    const inactive = tr.querySelector('.inactiveChk').checked;
+    gradeSel.classList.remove('invalid');
+    dateInp.classList.remove('invalid');
+
+    const amount = parseInt(gradeSel.value,10);
+    const dateVal = dateInp.value;
+    if(!dateVal){ dateInp.classList.add('invalid'); hasInvalid = true; continue; }
+    if(!amount){ gradeSel.classList.add('invalid'); hasInvalid = true; continue; }
+
+    const salaryEst = AMOUNT_TO_LOWER.get(amount);
+    entries.push({ date: new Date(dateVal+'T00:00:00'), amount, salaryEst, inactive });
+  }
+
+  const rAvg = document.getElementById('rAvgSalary');
+  const rAnnual = document.getElementById('rAnnual');
+  const rMonthly = document.getElementById('rMonthly');
+  const rPeriod = document.getElementById('rPeriod');
+
+  if(entries.length < 1 || hasInvalid){
+    rAvg.textContent = entries.length===0 ? '請至少輸入2筆異動紀錄' : '請確認每列都已選擇級距與日期';
+    rAvg.classList.add('empty');
+    rAnnual.textContent = '—'; rAnnual.classList.add('empty');
+    rMonthly.textContent = '—'; rMonthly.classList.add('empty');
+    rPeriod.textContent = '';
+    lastResult = null;
+    return;
+  }
+
+  entries.sort((a,b)=>a.date-b.date);
+
+  const today = new Date(); today.setHours(0,0,0,0);
+  const windowStart = new Date(today); windowStart.setDate(windowStart.getDate()-365);
+
+  let sumDays = 0, sumWeighted = 0;
+  const dayMs = 86400000;
+
+  for(let i=0;i<entries.length;i++){
+    const segStart = entries[i].date;
+    const segEnd = (i+1<entries.length) ? entries[i+1].date : today;
+    const clippedStart = segStart < windowStart ? windowStart : segStart;
+    let days = Math.round((segEnd - clippedStart)/dayMs);
+    if(days < 0) days = 0;
+    if(entries[i].inactive) days = 0;
+    sumDays += days;
+    sumWeighted += days*entries[i].salaryEst;
+  }
+
+  if(sumDays <= 0){
+    rAvg.textContent = '所選期間內無有效在職天數';
+    rAvg.classList.add('empty');
+    rAnnual.textContent = '—'; rAnnual.classList.add('empty');
+    rMonthly.textContent = '—'; rMonthly.classList.add('empty');
+    rPeriod.textContent = '';
+    lastResult = null;
+    return;
+  }
+
+  const avgSalary = sumWeighted/sumDays;
+  const annual = avgSalary*CONFIG.annualMonths;
+  const monthly = annual/12;
+
+  rAvg.classList.remove('empty'); rAnnual.classList.remove('empty'); rMonthly.classList.remove('empty');
+  rAvg.innerHTML = fmtMoney(avgSalary)+' <small>元</small>';
+  rAnnual.innerHTML = fmtMoney(annual)+' <small>元</small>';
+  rMonthly.innerHTML = fmtMoney(monthly)+' <small>元</small>';
+  rPeriod.textContent = `計算期間：${fmtDate(windowStart)} ～ ${fmtDate(today)}（有效在職天數 ${sumDays} 天）`;
+
+  lastResult = {avgSalary, annual, monthly, sumDays, windowStart, today};
+}
+
+// 複製文字：優先用新式Clipboard API，若不可用（例如以file://本機檔案開啟時瀏覽器會擋掉）
+// 則退回傳統的隱藏textarea + execCommand('copy')作法
+async function copyTextToClipboard(text){
+  if(navigator.clipboard && window.isSecureContext){
+    try{
+      await navigator.clipboard.writeText(text);
+      return true;
+    }catch(err){ /* 繼續往下走備援方案 */ }
+  }
+  try{
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.top = '0';
+    ta.style.left = '-9999px';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    ta.setSelectionRange(0, text.length);
+    const ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    return ok;
+  }catch(err){
+    return false;
+  }
+}
+
+document.getElementById('copyBtn').addEventListener('click', async (e)=>{
+  const btn = e.currentTarget;
+  const orig = btn.textContent;
+
+  if(!lastResult){
+    btn.textContent = '請先完成試算（確認每列都已選級距與日期）';
+    setTimeout(()=>{ btn.textContent = orig; }, 2200);
+    return;
+  }
+
+  const text = `【投保薪資回溯試算】\n`+
+    `計算期間：${fmtDate(lastResult.windowStart)} ～ ${fmtDate(lastResult.today)}（有效在職 ${lastResult.sumDays} 天）\n`+
+    `加權平均推估實際薪資（保守估計）：${fmtMoney(lastResult.avgSalary)} 元\n`+
+    `推算年收入（×${CONFIG.annualMonths}）：${fmtMoney(lastResult.annual)} 元\n`+
+    `推算平均月收：${fmtMoney(lastResult.monthly)} 元`;
+
+  const ok = await copyTextToClipboard(text);
+  if(ok){
+    btn.textContent = '已複製'; btn.classList.add('copied');
+  }else{
+    btn.textContent = '複製失敗，請手動選取結果文字';
+  }
+  setTimeout(()=>{ btn.textContent = orig; btn.classList.remove('copied'); }, 1800);
+});
+
+// ---------- 管理／更新分級表面板 ----------
+function fillMgmtPanel(cfg){
+  document.getElementById('cfgEffDate').value = cfg.effectiveDate;
+  document.getElementById('cfgPublishDate').value = cfg.sourcePublishDate;
+  document.getElementById('cfgSourceUrl').value = cfg.sourceUrl;
+  document.getElementById('cfgAnnualMonths').value = cfg.annualMonths;
+  document.getElementById('cfgAmounts').value = cfg.amounts.join('\n');
+  document.getElementById('cfgGroups').value = (cfg.groups||[]).map(g=>g.join('|')).join('\n');
+}
+
+function readMgmtPanel(){
+  const err = document.getElementById('cfgError');
+  err.textContent = '';
+  ['cfgEffDate','cfgPublishDate','cfgSourceUrl','cfgAnnualMonths','cfgAmounts','cfgGroups']
+    .forEach(id=>document.getElementById(id).classList.remove('invalid'));
+
+  const effectiveDate = document.getElementById('cfgEffDate').value.trim();
+  const sourcePublishDate = document.getElementById('cfgPublishDate').value.trim();
+  const sourceUrl = document.getElementById('cfgSourceUrl').value.trim();
+  const annualMonthsRaw = document.getElementById('cfgAnnualMonths').value.trim();
+  const amountsRaw = document.getElementById('cfgAmounts').value;
+  const groupsRaw = document.getElementById('cfgGroups').value;
+
+  if(!effectiveDate){ err.textContent = '請輸入生效日期'; document.getElementById('cfgEffDate').classList.add('invalid'); return null; }
+  if(!sourceUrl){ err.textContent = '請輸入資料來源網址'; document.getElementById('cfgSourceUrl').classList.add('invalid'); return null; }
+  const annualMonths = parseInt(annualMonthsRaw,10);
+  if(!annualMonths || annualMonths<=0){ err.textContent = '年度給付月數需為正整數'; document.getElementById('cfgAnnualMonths').classList.add('invalid'); return null; }
+
+  const lines = amountsRaw.split('\n').map(s=>s.trim()).filter(s=>s.length>0);
+  if(lines.length < 2){ err.textContent = '月投保金額至少需要2筆'; document.getElementById('cfgAmounts').classList.add('invalid'); return null; }
+  const amounts = [];
+  for(const line of lines){
+    const n = parseInt(line.replace(/,/g,''),10);
+    if(!Number.isFinite(n) || n<=0){ err.textContent = `「${line}」不是有效數字`; document.getElementById('cfgAmounts').classList.add('invalid'); return null; }
+    amounts.push(n);
+  }
+  for(let i=1;i<amounts.length;i++){
+    if(amounts[i] <= amounts[i-1]){
+      err.textContent = `第${i+1}行（${amounts[i]}）必須大於上一行（${amounts[i-1]}），請確認是否由小到大排列`;
+      document.getElementById('cfgAmounts').classList.add('invalid');
+      return null;
+    }
+  }
+
+  let groups = [];
+  const groupLines = groupsRaw.split('\n').map(s=>s.trim()).filter(s=>s.length>0);
+  for(const line of groupLines){
+    const parts = line.split('|').map(s=>s.trim());
+    if(parts.length !== 3){
+      err.textContent = `組別標示格式錯誤：「${line}」，應為 標籤|起始等級|結束等級`;
+      document.getElementById('cfgGroups').classList.add('invalid');
+      return null;
+    }
+    const [label, fromStr, toStr] = parts;
+    const from = parseInt(fromStr,10), to = parseInt(toStr,10);
+    if(!label || !Number.isFinite(from) || !Number.isFinite(to) || from<1 || to<from || to>amounts.length){
+      err.textContent = `組別標示範圍錯誤：「${line}」`;
+      document.getElementById('cfgGroups').classList.add('invalid');
+      return null;
+    }
+    groups.push([label, from, to]);
+  }
+
+  return { effectiveDate, sourceUrl, sourcePublishDate, annualMonths, amounts, groups };
+}
+
+document.getElementById('cfgApplyBtn').addEventListener('click', ()=>{
+  const cfg = readMgmtPanel();
+  if(!cfg) return;
+  Object.assign(CONFIG, cfg);
+  rowsBody.innerHTML = '';
+  rebuildFromConfig(CONFIG);
+  addRow({date: todayISO()});
+  calc();
+});
+
+// 儲存產生的檔案：發布版頁面用平台的downloads能力；本機單檔版則退回傳統Blob下載連結
+async function saveGeneratedFile(filename, htmlText){
+  let cap = null;
+  try{
+    if(window.claude && typeof window.claude.use === 'function'){
+      cap = await window.claude.use('downloads');
+    }
+  }catch(e){ cap = null; }
+
+  if(cap){
+    try{
+      await cap.save({ filename, data: htmlText });
+      return true;
+    }catch(err){
+      if(err && err.code === 'declined') return false;
+      // 其餘錯誤（例如unavailable）就繼續往下試傳統方式
+    }
+  }
+
+  try{
+    const blob = new Blob([htmlText], {type:'text/html'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+    return true;
+  }catch(err){ return false; }
+}
+
+document.getElementById('cfgDownloadBtn').addEventListener('click', async ()=>{
+  const cfg = readMgmtPanel();
+  if(!cfg) return;
+  Object.assign(CONFIG, cfg);
+  rowsBody.innerHTML = '';
+  rebuildFromConfig(CONFIG);
+  addRow({date: todayISO()});
+  calc();
+
+  const newConfigBlock = '// ===CONFIG_START===\nconst CONFIG = '+JSON.stringify(cfg, null, 2)+';\n// ===CONFIG_END===';
+  const marker = /\/\/ ===CONFIG_START===[\s\S]*?\/\/ ===CONFIG_END===/;
+  if(!marker.test(ORIGINAL_HTML)){
+    alert('找不到設定區標記，無法產生更新檔，請聯繫工具維護者');
+    return;
+  }
+  const newHtml = ORIGINAL_HTML.replace(marker, newConfigBlock);
+  const filename = `投保薪資回溯試算_${cfg.effectiveDate.replace(/\./g,'')}.html`;
+  const ok = await saveGeneratedFile(filename, newHtml);
+  if(!ok){
+    alert('下載失敗，請改用其他瀏覽器再試一次，或聯繫工具維護者');
+  }
+});
+
+// ---------- 初始化 ----------
+fillMgmtPanel(CONFIG);
+rebuildFromConfig(CONFIG);
+addRow({date: todayISO()});
+calc();
+</script>
+</body>
+</html>
