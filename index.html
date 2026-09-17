@@ -138,6 +138,23 @@
 
   footer.src{margin-top:18px;font-size:11.5px;color:var(--text-faint);line-height:1.7;}
   footer.src a{color:var(--text-faint);}
+
+  .io-row{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;}
+  .io-row .btn{flex:1;min-width:120px;}
+  .file-label{display:inline-flex;align-items:center;justify-content:center;}
+
+  @media print{
+    .no-print{display:none !important;}
+    body{background:#fff;padding:0;}
+    .grid{grid-template-columns:1fr;gap:12px;}
+    .card{border:1px solid #999;box-shadow:none;background:#fff !important;color:#000 !important;position:static;}
+    .result-card *{color:#000 !important;}
+    .result-label{color:#444 !important;}
+    .period-line{color:#333 !important;}
+    select, input[type=date]{border:none;background:transparent;color:#000;appearance:none;-webkit-appearance:none;padding:2px 0;}
+    .chk-cell input{pointer-events:none;}
+    details.panel{display:none !important;}
+  }
 </style>
 </head>
 <body>
@@ -160,13 +177,13 @@
             <th style="width:46%">投保等級 / 月投保金額</th>
             <th style="width:28%">生效日期</th>
             <th class="chk-cell">非現職</th>
-            <th class="rm-cell"></th>
+            <th class="rm-cell no-print"></th>
           </tr>
         </thead>
         <tbody id="rowsBody"></tbody>
       </table>
 
-      <div class="add-row">
+      <div class="add-row no-print">
         <button class="btn" id="addRowBtn" type="button">＋ 新增異動紀錄</button>
         <button class="btn" id="addTodayBtn" type="button">＋ 加入今天為基準日</button>
       </div>
@@ -196,7 +213,18 @@
         <div class="period-line" id="rPeriod"></div>
       </div>
 
-      <button class="btn copy-btn" id="copyBtn" type="button">複製試算摘要</button>
+      <button class="btn copy-btn no-print" id="copyBtn" type="button">複製試算摘要</button>
+
+      <div class="io-row no-print">
+        <button class="btn" id="printBtn" type="button">列印／匯出PDF</button>
+        <button class="btn" id="exportJsonBtn" type="button">匯出JSON</button>
+        <label class="btn file-label" for="importJsonInput">匯入JSON</label>
+        <input type="file" id="importJsonInput" accept="application/json" style="display:none">
+      </div>
+      <p class="note" style="color:#B9CBD4;">
+        列印／匯出PDF：用瀏覽器的列印功能存成PDF，適合當案件附件歸檔。<br>
+        匯出/匯入JSON：把目前的異動紀錄完整存成檔案，之後可以再匯入回來繼續編輯或覆核，不會遺失明細。
+      </p>
     </div>
   </div>
 
@@ -380,7 +408,7 @@ function addRow(opts={}){
     <td><select class="gradeSelect">${buildGradeOptions(opts.amount)}</select></td>
     <td><input type="date" class="dateInput" value="${opts.date||''}" max="${todayISO()}"></td>
     <td class="chk-cell"><input type="checkbox" class="inactiveChk" ${opts.inactive?'checked':''}></td>
-    <td class="rm-cell"><button class="rm-btn" type="button" title="刪除">✕</button></td>
+    <td class="rm-cell no-print"><button class="rm-btn" type="button" title="刪除">✕</button></td>
   `;
   rowsBody.appendChild(tr);
   tr.querySelector('.gradeSelect').addEventListener('change', calc);
@@ -526,6 +554,68 @@ document.getElementById('copyBtn').addEventListener('click', async (e)=>{
     btn.textContent = '複製失敗，請手動選取結果文字';
   }
   setTimeout(()=>{ btn.textContent = orig; btn.classList.remove('copied'); }, 1800);
+});
+
+document.getElementById('printBtn').addEventListener('click', ()=>{
+  window.print();
+});
+
+function buildExportObject(){
+  const trs = [...rowsBody.querySelectorAll('tr')];
+  const entries = trs.map(tr=>({
+    date: tr.querySelector('.dateInput').value,
+    amount: parseInt(tr.querySelector('.gradeSelect').value,10) || null,
+    inactive: tr.querySelector('.inactiveChk').checked
+  }));
+  return {
+    exportedAt: new Date().toISOString(),
+    config: { effectiveDate: CONFIG.effectiveDate, sourceUrl: CONFIG.sourceUrl, annualMonths: CONFIG.annualMonths },
+    entries,
+    result: lastResult ? {
+      avgSalary: lastResult.avgSalary,
+      annual: lastResult.annual,
+      monthly: lastResult.monthly,
+      sumDays: lastResult.sumDays,
+      windowStart: lastResult.windowStart.toISOString(),
+      today: lastResult.today.toISOString()
+    } : null
+  };
+}
+
+document.getElementById('exportJsonBtn').addEventListener('click', async ()=>{
+  const obj = buildExportObject();
+  const text = JSON.stringify(obj, null, 2);
+  const filename = `投保薪資試算_${todayISO()}.json`;
+  const ok = await saveGeneratedFile(filename, text);
+  if(!ok) alert('匯出失敗，請改用其他瀏覽器再試一次');
+});
+
+document.getElementById('importJsonInput').addEventListener('change', (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    try{
+      const obj = JSON.parse(reader.result);
+      if(!obj || !Array.isArray(obj.entries)) throw new Error('格式不符');
+      rowsBody.innerHTML = '';
+      let unmatched = 0;
+      for(const en of obj.entries){
+        const matched = GRADES.some(g=>g.amount === en.amount);
+        if(!matched) unmatched++;
+        addRow({ date: en.date, amount: en.amount, inactive: !!en.inactive });
+      }
+      if(rowsBody.children.length === 0) addRow({date: todayISO()});
+      calc();
+      if(unmatched > 0){
+        alert(`已匯入，但有${unmatched}筆的投保金額不在目前分級表中，請手動確認該幾列的級距`);
+      }
+    }catch(err){
+      alert('匯入失敗：檔案格式不正確');
+    }
+    e.target.value = '';
+  };
+  reader.readAsText(file);
 });
 
 // ---------- 管理／更新分級表面板 ----------
