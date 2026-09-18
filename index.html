@@ -108,6 +108,11 @@
   .result-value small{font-size:13px;font-weight:400;color:#B9CBD4;}
   .result-value.empty{color:#7C93A0;font-size:15px;font-weight:400;}
   .period-line{font-size:12.5px;color:#CFE0E7;margin-top:2px;}
+  .result-warning{
+    margin-top:10px;padding:10px 12px;border-radius:4px;
+    background:rgba(224,138,76,0.18);border:1px solid rgba(224,138,76,0.5);
+    color:#FFD9B0;font-size:12.5px;line-height:1.6;display:none;
+  }
   .copy-btn{margin-top:16px;width:100%;background:rgba(255,255,255,0.1);color:#fff;border:1px solid rgba(255,255,255,0.3);}
   .copy-btn:hover{background:rgba(255,255,255,0.18);}
   .copy-btn.copied{background:var(--positive);border-color:var(--positive);}
@@ -211,6 +216,7 @@
         <div class="result-label">推算平均月收</div>
         <div class="result-value empty" id="rMonthly">—</div>
         <div class="period-line" id="rPeriod"></div>
+        <div class="result-warning" id="rWarning"></div>
       </div>
 
       <button class="btn copy-btn no-print" id="copyBtn" type="button">複製試算摘要</button>
@@ -450,6 +456,9 @@ function calc(){
   const rAnnual = document.getElementById('rAnnual');
   const rMonthly = document.getElementById('rMonthly');
   const rPeriod = document.getElementById('rPeriod');
+  const rWarning = document.getElementById('rWarning');
+  rWarning.style.display = 'none';
+  rWarning.textContent = '';
 
   if(entries.length < 1 || hasInvalid){
     rAvg.textContent = entries.length===0 ? '請至少輸入2筆異動紀錄' : '請確認每列都已選擇級距與日期';
@@ -499,6 +508,12 @@ function calc(){
   rAnnual.innerHTML = fmtMoney(annual)+' <small>元</small>';
   rMonthly.innerHTML = fmtMoney(monthly)+' <small>元</small>';
   rPeriod.textContent = `計算期間：${fmtDate(windowStart)} ～ ${fmtDate(today)}（有效在職天數 ${sumDays} 天）`;
+
+  if(sumDays < 365){
+    const missing = 365 - sumDays;
+    rWarning.style.display = 'block';
+    rWarning.textContent = `⚠️ 這一年中有 ${missing} 天沒有對應的異動紀錄（非現職或漏填），平均值只根據已涵蓋的 ${sumDays} 天計算，可能偏向這段期間的薪資水準，請確認是否需要補上異動紀錄。`;
+  }
 
   lastResult = {avgSalary, annual, monthly, sumDays, windowStart, today};
 }
@@ -607,8 +622,27 @@ document.getElementById('importJsonInput').addEventListener('change', (e)=>{
       }
       if(rowsBody.children.length === 0) addRow({date: todayISO()});
       calc();
+
+      const warnings = [];
       if(unmatched > 0){
-        alert(`已匯入，但有${unmatched}筆的投保金額不在目前分級表中，請手動確認該幾列的級距`);
+        warnings.push(`有${unmatched}筆的投保金額不在目前分級表中，請手動確認該幾列的級距。`);
+      }
+
+      // 比對重新計算後的結果跟原始存檔是否一致（例如分級表版本已更新，導致重算結果不同）
+      if(obj.result && lastResult){
+        const diff = Math.abs(lastResult.avgSalary - obj.result.avgSalary);
+        if(diff > 1){
+          const versionNote = (obj.config && obj.config.effectiveDate && obj.config.effectiveDate !== CONFIG.effectiveDate)
+            ? `（原始存檔使用${obj.config.effectiveDate}分級表，目前工具使用${CONFIG.effectiveDate}分級表，可能因分級表已更新導致）`
+            : '（原因不明，請仔細核對每一列）';
+          warnings.push(`重新計算後的結果跟原始存檔不同：原始 ${fmtMoney(obj.result.avgSalary)} 元 → 現在 ${fmtMoney(lastResult.avgSalary)} 元${versionNote}`);
+        }
+      } else if(obj.result && !lastResult){
+        warnings.push('原始存檔有試算結果，但重新計算後無法得出結果，請確認匯入的異動紀錄是否完整。');
+      }
+
+      if(warnings.length > 0){
+        alert('已匯入，但請注意：\n\n' + warnings.join('\n\n'));
       }
     }catch(err){
       alert('匯入失敗：檔案格式不正確');
